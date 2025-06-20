@@ -1,4 +1,9 @@
+/**************************************
+ * Escape the Grid – menú + carga mapa
+ *  (SFML 2.x + tinyfiledialogs)
+ *************************************/
 #include <SFML/Graphics.hpp>
+#include "tinyfiledialogs.h"
 #include <fstream>
 #include <vector>
 #include <string>
@@ -8,296 +13,310 @@
 #include <cstdlib>
 #include <ctime>
 
-const float PI = 3.14159265f;
-const float RADIO_BASE = 43.f;
-const float PASO_X_BASE = 30.2671f;
-const float PASO_Y_PAR_BASE = 48.f;
-const float PASO_Y_IMPAR_BASE = 40.f;
-const int WINDOW_WIDTH = 1200;
-const int WINDOW_HEIGHT = 900;
-const int BATERIA_MAX = 20;
-const float CAMBIO_PROBABILIDAD = 0.05f;
-const int META_CAMBIO_CADA = 5; // N movimientos
+using namespace std;
+using namespace sf;
 
-sf::ConvexShape crearPentagono(float radio, float rotacion = 0.f) {
-    sf::ConvexShape shape;
-    shape.setPointCount(5);
-    for (int i = 0; i < 5; ++i) {
-        float angle = rotacion + 2 * PI * i / 5 - PI / 2;
-        shape.setPoint(i, sf::Vector2f(std::cos(angle) * radio, std::sin(angle) * radio));
-    }
-    shape.setFillColor(sf::Color::Cyan);
-    shape.setOutlineColor(sf::Color::Black);
-    shape.setOutlineThickness(1);
-    return shape;
+// ---------- Constantes generales -------------
+const float PI               = 3.14159265f;
+const int   WINDOW_WIDTH     = 1200;
+const int   WINDOW_HEIGHT    = 900;
+const int   BATERIA_MAX      = 20;
+const float CAMBIO_PROBABILIDAD = 0.05f;
+const int   META_CAMBIO_CADA = 5;   // cada N movimientos
+
+const float RADIO_BASE       = 43.f;
+const float PASO_X_BASE      = 30.2671f;
+const float PASO_Y_PAR_BASE  = 48.f;
+const float PASO_Y_IMPAR_BASE= 40.f;
+
+// ---------- Helpers gráficos -------------
+FloatRect centerText(Text& t, float y)
+{
+    FloatRect b = t.getLocalBounds();
+    t.setOrigin(b.left + b.width/2, b.top + b.height/2);
+    t.setPosition(WINDOW_WIDTH/2.f, y);
+    return t.getGlobalBounds();
 }
 
-int main() {
-    std::srand(static_cast<unsigned>(std::time(nullptr)));
-    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Escape the Grid - Bateria");
+enum class Estado { MENU_INICIO, MENU_CARGAR, JUEGO };
 
-    sf::Texture texturaFondo;
-    texturaFondo.loadFromFile("espacio.png");
-    sf::Sprite fondo(texturaFondo);
-    sf::Vector2u tamImagen = texturaFondo.getSize();
+// *************************************************
+//  FUNCIÓN DE JUEGO -------------------------------
+// *************************************************
+void ejecutarJuego(RenderWindow& window,
+                   const string& archivoMapa,
+                   Font& fuente)
+{
+    ifstream archivo(archivoMapa);
+    if (!archivo)
+    {
+        tinyfd_messageBox("Error",
+           ("No pude abrir el archivo:\n" + archivoMapa).c_str(),
+           "ok", "error", 1);
+        return;
+    }
+
+    vector<string> mapaOriginal;
+    string linea;
+    while (getline(archivo, linea)) mapaOriginal.push_back(linea);
+    vector<string> mapa = mapaOriginal;
+
+    Texture bgTx;  bgTx.loadFromFile("espacio.png");
+    Sprite fondo(bgTx);
     fondo.setScale(
-        float(WINDOW_WIDTH) / tamImagen.x,
-        float(WINDOW_HEIGHT) / tamImagen.y
-    );
+        float(WINDOW_WIDTH) / bgTx.getSize().x,
+        float(WINDOW_HEIGHT) / bgTx.getSize().y);
 
-    std::ifstream archivo("nivel.txt");
-    std::vector<std::string> mapaOriginal;
-    std::string linea;
-    while (std::getline(archivo, linea)) {
-        mapaOriginal.push_back(linea);
+    static Texture txOn, txOff;
+    static bool txCargadas = false;
+    if (!txCargadas)
+    {
+        txOn.loadFromFile("PentagonosON.png");
+        txOff.loadFromFile("PentagonosOFF.png");
+        txCargadas = true;
     }
-    std::vector<std::string> mapa = mapaOriginal;
 
-    size_t filas = mapa.size();
-    size_t columnas = 0;
-    for (const auto& l : mapa)
-        if (l.size() > columnas)
-            columnas = l.size();
+    size_t filas = mapa.size(), cols = 0;
+    for (auto& l : mapa) if (l.size() > cols) cols = l.size();
 
-    float alturaTablero = 0.f;
+    float escalaX = (WINDOW_WIDTH - 100.f) / (cols * PASO_X_BASE);
+    float alturaTab = 0.f;
     for (size_t i = 0; i < filas; ++i)
-        alturaTablero += (i % 2 == 1) ? PASO_Y_IMPAR_BASE : PASO_Y_PAR_BASE;
-    float anchoTablero = columnas * PASO_X_BASE;
+        alturaTab += (i % 2 ? PASO_Y_IMPAR_BASE : PASO_Y_PAR_BASE);
+    float escalaY = (WINDOW_HEIGHT - 150.f) / alturaTab;
+    float escala  = min(escalaX, escalaY);
 
-    float escalaX = (WINDOW_WIDTH - 100.f) / anchoTablero;
-    float escalaY = (WINDOW_HEIGHT - 150.f) / alturaTablero;
-    float escala = std::min(escalaX, escalaY);
-
-    float RADIO = RADIO_BASE * escala;
-    float PASO_X = PASO_X_BASE * escala;
+    float RADIO      = RADIO_BASE      * escala;
+    float PASO_X     = PASO_X_BASE     * escala;
     float PASO_Y_PAR = PASO_Y_PAR_BASE * escala;
-    float PASO_Y_IMPAR = PASO_Y_IMPAR_BASE * escala;
+    float PASO_Y_IMP = PASO_Y_IMPAR_BASE*escala;
 
-    std::map<std::pair<int, int>, sf::Vector2f> posiciones;
-    float yAcumulado = 70.f;
-
-    for (size_t fila = 0; fila < mapa.size(); ++fila) {
-        float rotacion = (fila % 2 == 1) ? PI / 5 : 0.f;
-        for (size_t col = 0; col < mapa[fila].size(); ++col) {
-            float dx = 0.f;
-            float cx = col * PASO_X + 50 + dx;
-            float cy = yAcumulado;
-            posiciones[{(int)fila, (int)col}] = {cx, cy};
+    map<pair<int,int>, Vector2f> posCelda;
+    float yAcc = 70.f;
+    for (size_t f = 0; f < filas; ++f)
+    {
+        for (size_t c = 0; c < mapa[f].size(); ++c)
+        {
+            float cx = c * PASO_X + 50.f;
+            posCelda[{(int)f, (int)c}] = {cx, yAcc};
         }
-        yAcumulado += (fila % 2 == 1) ? PASO_Y_IMPAR : PASO_Y_PAR;
+        yAcc += (f % 2 ? PASO_Y_IMP : PASO_Y_PAR);
     }
 
-    int filaJugador = -1, colJugador = -1;
-    int filaMeta = -1, colMeta = -1;
-    int contadorMovimientos = 0;
+    int fJug=-1, cJug=-1, fMeta=-1, cMeta=-1, movs=0, bateria=BATERIA_MAX;
+    CircleShape jugador(RADIO/2), meta(RADIO/2);
+    jugador.setFillColor(Color::Red);
+    meta.setFillColor(Color::Green);
+    jugador.setOrigin(RADIO/2,RADIO/2); meta.setOrigin(RADIO/2,RADIO/2);
 
-    sf::CircleShape jugador(RADIO / 2);
-    jugador.setFillColor(sf::Color::Red);
-    jugador.setOrigin(RADIO / 2, RADIO / 2);
+    RectangleShape barraFondo({200,20});
+    barraFondo.setFillColor({50,50,50});
+    barraFondo.setPosition(WINDOW_WIDTH-220,20);
+    RectangleShape barraCarga; barraCarga.setPosition(WINDOW_WIDTH-220,20);
+    Text txtBateria("Bateria: 20", fuente, 16);
+    txtBateria.setPosition(WINDOW_WIDTH-215,45);
 
-    sf::CircleShape meta(RADIO / 2);
-    meta.setFillColor(sf::Color::Green);
-    meta.setOrigin(RADIO / 2, RADIO / 2);
+    Clock relojMsg;
+    Text msgMeta("", fuente, 24);
+    msgMeta.setPosition(20,20);
+    bool mostrarMsg=false;
 
-    int bateria = BATERIA_MAX;
+    while (window.isOpen())
+    {
+        Event ev;
+        while (window.pollEvent(ev))
+        {
+            if (ev.type == Event::Closed) window.close();
 
-    sf::Font fuente;
-    fuente.loadFromFile("arial.ttf");
-    sf::RectangleShape barraFondo(sf::Vector2f(200, 20));
-    barraFondo.setFillColor(sf::Color(50, 50, 50));
-    barraFondo.setPosition(WINDOW_WIDTH - 220, 20);
-    sf::RectangleShape barraCarga;
-    barraCarga.setPosition(WINDOW_WIDTH - 220, 20);
-    sf::Text textoBateria;
-    textoBateria.setFont(fuente);
-    textoBateria.setCharacterSize(16);
-    textoBateria.setFillColor(sf::Color::White);
-    textoBateria.setPosition(WINDOW_WIDTH - 215, 45);
-    textoBateria.setString("Bateria: " + std::to_string(bateria));
-
-    sf::Text mensajeMeta;
-    mensajeMeta.setFont(fuente);
-    mensajeMeta.setCharacterSize(24);
-    mensajeMeta.setFillColor(sf::Color::White);
-    mensajeMeta.setPosition(20, 20);
-    bool mostrarMensaje = false;
-    sf::Clock relojMensaje;
-
-    while (window.isOpen()) {
-        sf::Event e;
-        while (window.pollEvent(e)) {
-            if (e.type == sf::Event::Closed)
-                window.close();
-            else if (e.type == sf::Event::MouseButtonPressed) {
-                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                for (const auto& [coord, pos] : posiciones) {
-                    float dist = std::hypot(pos.x - mousePos.x, pos.y - mousePos.y);
-                    if (dist <= RADIO && mapa[coord.first][coord.second] == 'P') {
-                        if (filaJugador == -1) {
-                            filaJugador = coord.first;
-                            colJugador = coord.second;
-                            jugador.setPosition(pos);
-                        } else if (filaMeta == -1 && !(coord.first == filaJugador && coord.second == colJugador)) {
-                            filaMeta = coord.first;
-                            colMeta = coord.second;
-                            meta.setPosition(pos);
-                        }
+            if (ev.type == Event::MouseButtonPressed &&
+                ev.mouseButton.button == Mouse::Left)
+            {
+                Vector2i mp = Mouse::getPosition(window);
+                for (auto& [coord, pos] : posCelda)
+                {
+                    float dist = hypot(pos.x - mp.x, pos.y - mp.y);
+                    if (dist <= RADIO && mapa[coord.first][coord.second] == 'P')
+                    {
+                        if (fJug == -1)
+                        { fJug = coord.first; cJug = coord.second; jugador.setPosition(pos); }
+                        else if (fMeta == -1 && !(coord.first == fJug && coord.second == cJug))
+                        { fMeta = coord.first; cMeta = coord.second; meta.setPosition(pos); }
                         break;
                     }
                 }
             }
         }
 
-        if (filaJugador != -1 && colJugador != -1 && filaMeta != -1 && colMeta != -1 && bateria > 0) {
-            bool mover = false;
-            int nuevaFila = filaJugador;
-            int nuevaCol = colJugador;
+        if (fJug != -1 && fMeta != -1 && bateria > 0)
+        {
+            bool mover = false; int nf = fJug, nc = cJug;
+            if (Keyboard::isKeyPressed(Keyboard::W)) { nf--; mover = true; }
+            else if (Keyboard::isKeyPressed(Keyboard::S)) { nf++; mover = true; }
+            else if (Keyboard::isKeyPressed(Keyboard::A))
+            { if (fJug % 2 == 0) { nf--; nc--; } else { nf++; nc--; } mover = true; }
+            else if (Keyboard::isKeyPressed(Keyboard::D))
+            { if (fJug % 2 == 0) { nf--; nc++; } else { nf++; nc++; } mover = true; }
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-                nuevaFila--;
-                mover = true;
-            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-                nuevaFila++;
-                mover = true;
-            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-                if (filaJugador % 2 == 0) {
-                    nuevaFila--;
-                    nuevaCol--;
-                } else {
-                    nuevaFila++;
-                    nuevaCol--;
-                }
-                mover = true;
-            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-                if (filaJugador % 2 == 0) {
-                    nuevaFila--;
-                    nuevaCol++;
-                } else {
-                    nuevaFila++;
-                    nuevaCol++;
-                }
-                mover = true;
-            }
+            if (mover && nf >= 0 && nf < (int)filas &&
+                nc >= 0 && nc < (int)mapa[nf].size() &&
+                mapa[nf][nc] == 'P')
+            {
+                fJug = nf; cJug = nc;
+                jugador.setPosition(posCelda[{fJug,cJug}]);
+                bateria--; movs++; txtBateria.setString("Bateria: " + to_string(bateria));
 
-            if (mover && nuevaFila >= 0 && nuevaFila < (int)mapa.size() &&
-                nuevaCol >= 0 && nuevaCol < (int)mapa[nuevaFila].size() &&
-                mapa[nuevaFila][nuevaCol] == 'P') {
+                if (fJug == fMeta && cJug == cMeta)
+                { msgMeta.setString(u8"¡Meta alcanzada!"); mostrarMsg = true; relojMsg.restart(); }
 
-                filaJugador = nuevaFila;
-                colJugador = nuevaCol;
-                jugador.setPosition(posiciones[{filaJugador, colJugador}]);
-                bateria--;
-                contadorMovimientos++;
-                textoBateria.setString("Bateria: " + std::to_string(bateria));
-
-                if (filaJugador == filaMeta && colJugador == colMeta) {
-                    mostrarMensaje = true;
-                    relojMensaje.restart();
-                    mensajeMeta.setString("\u00a1Meta alcanzada!");
-                }
-
-                if (contadorMovimientos % META_CAMBIO_CADA == 0) {
-                    std::vector<std::pair<int, int>> posibles;
-                    for (size_t i = 0; i < mapa.size(); ++i) {
-                        for (size_t j = 0; j < mapa[i].size(); ++j) {
-                            if (mapa[i][j] == 'P' && !(i == filaJugador && j == colJugador)) {
-                                posibles.emplace_back(i, j);
-                            }
-                        }
-                    }
-                    if (!posibles.empty()) {
-                        auto nueva = posibles[std::rand() % posibles.size()];
-                        filaMeta = nueva.first;
-                        colMeta = nueva.second;
-                        meta.setPosition(posiciones[{filaMeta, colMeta}]);
+                if (movs % META_CAMBIO_CADA == 0)
+                {
+                    vector<pair<int,int>> cand;
+                    for (size_t i = 0; i < filas; ++i)
+                        for (size_t j = 0; j < mapa[i].size(); ++j)
+                            if (mapa[i][j] == 'P' && !(i == fJug && j == cJug))
+                                cand.emplace_back(i,j);
+                    if (!cand.empty())
+                    {
+                        auto nm = cand[rand() % cand.size()];
+                        fMeta = nm.first; cMeta = nm.second;
+                        meta.setPosition(posCelda[{fMeta,cMeta}]);
                     }
                 }
 
-                for (size_t i = 0; i < mapa.size(); ++i) {
-                    for (size_t j = 0; j < mapa[i].size(); ++j) {
-                        if ((int)i == filaJugador && (int)j == colJugador) continue;
-                        if ((int)i == filaMeta && (int)j == colMeta) continue;
+                for (size_t i = 0; i < filas; ++i)
+                    for (size_t j = 0; j < mapa[i].size(); ++j)
+                    {
+                        if ((int)i == fJug && (int)j == cJug) continue;
+                        if ((int)i == fMeta && (int)j == cMeta) continue;
                         if (mapaOriginal[i][j] == '.') continue;
-                        if ((std::rand() % 100) < (CAMBIO_PROBABILIDAD * 100)) {
+                        if (rand() % 100 < CAMBIO_PROBABILIDAD*100)
                             mapa[i][j] = (mapa[i][j] == 'P') ? '.' : 'P';
-                        }
                     }
-                }
-
-                sf::sleep(sf::milliseconds(150));
+                sleep(milliseconds(150));
             }
         }
-
-        if (mostrarMensaje && relojMensaje.getElapsedTime().asSeconds() > 2.f) {
-            mostrarMensaje = false;
-        }
+        if (mostrarMsg && relojMsg.getElapsedTime().asSeconds() > 2) mostrarMsg = false;
 
         window.clear();
         window.draw(fondo);
-        /*for (size_t fila = 0; fila < mapa.size(); ++fila) {
-            float rotacion = (fila % 2 == 1) ? PI / 5 : 0.f;
-            for (size_t col = 0; col < mapa[fila].size(); ++col) {
-                if (mapa[fila][col] != 'P') continue;
-                sf::ConvexShape p = crearPentagono(RADIO, rotacion);
-                p.setPosition(posiciones[{(int)fila, (int)col}]);
-                window.draw(p);
+
+        for (size_t f = 0; f < filas; ++f)
+        {
+            float rotDeg = (f % 2 ? 36.f : 0.f);
+            for (size_t c = 0; c < mapa[f].size(); ++c)
+            {
+                if (mapaOriginal[f][c] == '.') continue;
+                Sprite sp; sp.setTexture(mapa[f][c] == 'P' ? txOn : txOff);
+                float factor = (RADIO*2) / sp.getTexture()->getSize().x;
+                sp.setScale(factor, factor);
+                sp.setOrigin(sp.getTexture()->getSize().x/2.f,
+                             sp.getTexture()->getSize().y/2.f);
+                sp.setPosition(posCelda[{(int)f,(int)c}]);
+                sp.setRotation(rotDeg);
+                window.draw(sp);
             }
-        }*/
-       // --- DIBUJAR EL TABLERO CON SPRITES ROTADOS ------------------------------
-static sf::Texture texturaON, texturaOFF;
-static bool cargadas = false;
-if (!cargadas) {
-    texturaON.loadFromFile("PentagonosON.png");
-    texturaOFF.loadFromFile("PentagonosOFF.png");
-    cargadas = true;
-}
+        }
 
-for (size_t fila = 0; fila < mapa.size(); ++fila) {
-    // 0 rad o 36 ° (π/5) según la fila, igual que antes
-    float rotDeg = (fila % 2 == 1) ? 36.f : 0.f;   // grados
+        if (fMeta != -1) window.draw(meta);
+        if (fJug  != -1) window.draw(jugador);
 
-    for (size_t col = 0; col < mapa[fila].size(); ++col) {
-        if (mapaOriginal[fila][col] == '.') continue;   // puntos fijos no se dibujan
+        float wAct = 200.f * bateria / BATERIA_MAX;
+        barraCarga.setSize({wAct, 20});
+        float perc = float(bateria) / BATERIA_MAX;
+        barraCarga.setFillColor(perc > 0.66 ? Color::Green :
+                                perc > 0.33 ? Color::Yellow :
+                                              Color::Red);
 
-        sf::Sprite sprite;
-        sprite.setTexture(mapa[fila][col] == 'P' ? texturaON : texturaOFF);
+        window.draw(barraFondo); window.draw(barraCarga); window.draw(txtBateria);
+        if (mostrarMsg) window.draw(msgMeta);
 
-        // Colocar en la misma posición pre-calculada
-        sprite.setPosition(posiciones[{(int)fila, (int)col}]);
-
-        // Escalar para que el sprite “encaje” en el radio calculado
-        float factor = (RADIO * 2) / sprite.getTexture()->getSize().x;
-        sprite.setScale(factor, factor);
-
-        // Centrar ancla y rotar
-        sprite.setOrigin(
-            sprite.getTexture()->getSize().x / 2.f,
-            sprite.getTexture()->getSize().y / 2.f
-        );
-        sprite.setRotation(rotDeg);
-
-        window.draw(sprite);
+        window.display();
     }
 }
 
+int main()
+{
+    srand((unsigned)time(nullptr));
+    RenderWindow window(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT),
+                        "Escape the Grid");
+    window.setFramerateLimit(60);
 
-        if (filaMeta != -1) window.draw(meta);
-        if (filaJugador != -1) window.draw(jugador);
+    Font fuente;  fuente.loadFromFile("arial.ttf");
 
-        float anchoActual = 200.f * bateria / BATERIA_MAX;
-        barraCarga.setSize(sf::Vector2f(anchoActual, 20));
-        float porcentaje = float(bateria) / float(BATERIA_MAX);
-        if (porcentaje > 0.66f) barraCarga.setFillColor(sf::Color::Green);
-        else if (porcentaje > 0.33f) barraCarga.setFillColor(sf::Color::Yellow);
-        else barraCarga.setFillColor(sf::Color::Red);
+    Texture bgMenuTx; bgMenuTx.loadFromFile("labo.png");
+    Sprite bgMenu(bgMenuTx);
+    bgMenu.setScale(float(WINDOW_WIDTH) / bgMenuTx.getSize().x,
+                    float(WINDOW_HEIGHT) / bgMenuTx.getSize().y);
 
-        window.draw(barraFondo);
-        window.draw(barraCarga);
-        window.draw(textoBateria);
+    RectangleShape btnRect({250, 60});
+    btnRect.setFillColor(Color(20,20,20,180));
+    btnRect.setOrigin(btnRect.getSize().x/2.f, btnRect.getSize().y/2.f);
 
-        if (mostrarMensaje) window.draw(mensajeMeta);
+    Text btnTxt("Jugar", fuente, 28);
+    btnTxt.setFillColor(Color::White);
 
-        window.display();
+    Estado estado = Estado::MENU_INICIO;
+    string mapaSeleccionado;
+
+    while (window.isOpen())
+    {
+        Event e;
+        while (window.pollEvent(e))
+        {
+            if (e.type == Event::Closed) window.close();
+
+            if (estado == Estado::MENU_INICIO &&
+                e.type == Event::MouseButtonPressed &&
+                e.mouseButton.button == Mouse::Left)
+            {
+                Vector2i mp = Mouse::getPosition(window);
+                if (btnRect.getGlobalBounds().contains(float(mp.x), float(mp.y)))
+                    estado = Estado::MENU_CARGAR;
+            }
+            else if (estado == Estado::MENU_CARGAR &&
+                     e.type == Event::MouseButtonPressed &&
+                     e.mouseButton.button == Mouse::Left)
+            {
+                Vector2i mp = Mouse::getPosition(window);
+                if (btnRect.getGlobalBounds().contains(float(mp.x), float(mp.y)))
+                {
+                    const char* filtros[1] = { "*.txt" };
+                    const char* ruta =
+                        tinyfd_openFileDialog("Selecciona nivel", "",
+                                              1, filtros, "Nivel", 0);
+                    if (ruta)
+                    {
+                        mapaSeleccionado = ruta;
+                        estado = Estado::JUEGO;
+                        ejecutarJuego(window, mapaSeleccionado, fuente);
+                        estado = Estado::MENU_INICIO;
+                    }
+                }
+            }
+        }
+
+        if (estado == Estado::MENU_INICIO || estado == Estado::MENU_CARGAR)
+        {
+            window.clear();
+            window.draw(bgMenu);
+
+            string textoBoton = (estado == Estado::MENU_INICIO) ? "Jugar" : "Cargar mapa";
+            btnTxt.setString(textoBoton);
+            FloatRect b = btnTxt.getLocalBounds();
+            btnTxt.setOrigin(b.left + b.width/2.f, b.top + b.height/2.f);
+
+            btnRect.setPosition(WINDOW_WIDTH/2.f, WINDOW_HEIGHT*0.7f);
+            btnTxt .setPosition(btnRect.getPosition());
+
+            Text titulo("Escape the Grid", fuente, 48);
+            titulo.setFillColor(Color::White);
+            FloatRect tb = titulo.getLocalBounds();
+            titulo.setOrigin(tb.left + tb.width/2.f, tb.top + tb.height/2.f);
+            titulo.setPosition(WINDOW_WIDTH/2.f, WINDOW_HEIGHT*0.25f);
+
+            window.draw(btnRect); window.draw(btnTxt); window.draw(titulo);
+            window.display();
+        }
     }
     return 0;
 }
