@@ -3,6 +3,7 @@
  *  (SFML 2.x + tinyfiledialogs)
  *  ▸ BFS + ruta amarilla + FIX “un paso”
  *  ▸ Protección anti-encierro: reconexión forzada
+ *  ▸ FIN DE JUEGO: “Meta alcanzada” con 2 opciones
  *************************************/
 #include <SFML/Graphics.hpp>
 #include "tinyfiledialogs.h"
@@ -164,8 +165,10 @@ bool forzarReconectar(vector<string>& mapa,int fJug,int cJug,int fMeta,int cMeta
 
 // *************************************************
 //  FUNCIÓN DE JUEGO
+//   devuelve true  → volver a “Cargar mapa”
+//            false → volver al menú de inicio
 // *************************************************
-void ejecutarJuego(RenderWindow& window,
+bool ejecutarJuego(RenderWindow& window,
                    const string& archivoMapa,
                    Font& fuente)
 {
@@ -176,7 +179,7 @@ void ejecutarJuego(RenderWindow& window,
         tinyfd_messageBox("Error",
             ("No pude abrir:\n"+archivoMapa).c_str(),
             "ok","error",1);
-        return;
+        return false;
     }
     vector<string> mapaOriginal; string linea;
     while(getline(archivo,linea)) mapaOriginal.push_back(linea);
@@ -193,14 +196,18 @@ void ejecutarJuego(RenderWindow& window,
                    txOff.loadFromFile("PentagonosOFF.png"); cargadas=true;}
 
     // ---------- Geometría ----------
-    size_t filas=mapa.size(), cols=0;
-    for(auto& l:mapa) cols=max(cols,l.size());
-    float escalaX=(WINDOW_WIDTH-100.f)/(cols*PASO_X_BASE);
-    float altura=0.f;
-    for(size_t i=0;i<filas;++i)
-        altura+=(i%2?PASO_Y_IMPAR_BASE:PASO_Y_PAR_BASE);
-    float escalaY=(WINDOW_HEIGHT-150.f)/altura;
-    float escala=min(escalaX,escalaY);
+    size_t filas = mapa.size(), cols = 0;
+for (auto& l : mapa) cols = max(cols, l.size());
+
+float escalaX = (WINDOW_WIDTH - 100.f) / (cols * PASO_X_BASE);
+
+float altura = 0.f;
+for (size_t i = 0; i < filas; ++i)
+    altura += (i % 2 ? PASO_Y_IMPAR_BASE : PASO_Y_PAR_BASE);
+
+float escalaY = (WINDOW_HEIGHT - 150.f) / altura;   //  ← faltaba esta línea
+float escala  = std::min(escalaX, escalaY);          //  ← ahora usa escalaY
+
 
     float RADIO=RADIO_BASE*escala,
           PASO_X=PASO_X_BASE*escala,
@@ -245,6 +252,8 @@ void ejecutarJuego(RenderWindow& window,
                mapa[f][c]=='P';
     };
 
+    bool volverMenuCarga=false; // ← bandera de victoria
+
     // ---------- Movimiento + cambios aleatorios ----------
     auto aplicarCambiosAleatorios=[&](){
         for(size_t i=0;i<filas;++i)
@@ -262,12 +271,19 @@ void ejecutarJuego(RenderWindow& window,
         fJug=nf; cJug=nc; jugador.setPosition(posCelda[{fJug,cJug}]);
         bateria--; movs++; txtBateria.setString("Bateria: "+to_string(bateria));
 
-        // ¿Meta?
+        /* ────────── VICTORIA ────────── */
         if(fJug==fMeta && cJug==cMeta)
-        { msgMeta.setString(u8"¡Meta alcanzada!"); mostrarMsg=true;
-          relojMsg.restart(); autoMover=false; }
+        {
+            autoMover=false;
+            int resp = tinyfd_messageBox("¡Meta alcanzada!",
+                "¡Felicitaciones!\n\n¿Deseas cargar otro mapa?\n(Sí = cargar, No = salir)",
+                "yesno","info",1);
+            if(resp == 1)   volverMenuCarga = true;   // regresar a Cargar mapa
+            else            window.close();           // salir del juego
+            return;                                   //  ⮑  ¡no mover la meta!
+        }
 
-        // Cambio meta periódico
+        /* ────────── META PERIÓDICA (solo si NO hubo victoria) ────────── */
         if(movs % META_CAMBIO_CADA==0)
         {
             vector<pair<int,int>> cand;
@@ -282,7 +298,7 @@ void ejecutarJuego(RenderWindow& window,
             }
         }
 
-        // Guardar mapa antes de mutar
+        /* ────────── Mutaciones de mapa ────────── */
         vector<string> respaldo=mapa;
         aplicarCambiosAleatorios();
 
@@ -299,7 +315,7 @@ void ejecutarJuego(RenderWindow& window,
     };
 
     // ---------- Bucle principal ----------
-    while(window.isOpen())
+    while(window.isOpen() && !volverMenuCarga)
     {
         Event ev;
         while(window.pollEvent(ev))
@@ -413,6 +429,7 @@ void ejecutarJuego(RenderWindow& window,
 
         window.display();
     }
+    return volverMenuCarga;
 }
 
 // ============================================================================
@@ -465,12 +482,16 @@ int main()
                     if(ruta)
                     {
                         mapaSel=ruta; estado=Estado::JUEGO;
-                        ejecutarJuego(window,mapaSel,fuente);
-                        estado=Estado::MENU_INICIO;
+                        bool volver = ejecutarJuego(window,mapaSel,fuente);
+                        if(!window.isOpen()) break;              // usuario eligió salir
+                        estado = volver ? Estado::MENU_CARGAR    // volver a carga
+                                        : Estado::MENU_INICIO;   // volver a inicio
                     }
                 }
             }
         }
+
+        if(!window.isOpen()) break;
 
         if(estado==Estado::MENU_INICIO||estado==Estado::MENU_CARGAR)
         {
