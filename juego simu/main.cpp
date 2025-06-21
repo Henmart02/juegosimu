@@ -1,5 +1,6 @@
 /*****************************************************
- *  Escape the Grid – versión FINAL protegida
+ *  Escape the Grid – versión FINAL configurable
+ *  ▸ Pantalla de configuración interna (Batería y cambio de meta)
  *  ▸ Jugador y meta nunca quedan aislados
  *  ▸ Cambios aleatorios reversibles
  *  ▸ Meta periódica siempre alcanzable
@@ -22,13 +23,15 @@
 using namespace std;
 using namespace sf;
 
-/* ------------ Constantes globales ------------ */
+/* ------------ Ajustes editables en tiempo de ejecución ------------ */
+int   BATERIA_MAX      = 100;  // ← ahora variables globales
+int   META_CAMBIO_CADA = 10;
+
+/* ------------ Constantes globales (fijas) ------------ */
 const float PI               = 3.14159265f;
 const int   WINDOW_WIDTH     = 1200;
 const int   WINDOW_HEIGHT    = 900;
-const int   BATERIA_MAX      = 100;
 const float CAMBIO_PROBABILIDAD = 0.05f;   // 5 % de prob. de mutar una celda
-const int   META_CAMBIO_CADA = 10;         // N movimientos para mover meta
 
 const float RADIO_BASE       = 43.f;
 const float PASO_X_BASE      = 30.2671f;
@@ -45,7 +48,7 @@ FloatRect centerText(Text& t, float y)
 }
 
 /* ------------ Estado de la aplicación ------------ */
-enum class Estado { MENU_INICIO, MENU_CARGAR, JUEGO };
+enum class Estado { MENU_INICIO, MENU_CONFIG, MENU_CARGAR, JUEGO };
 
 /* =========================================================
    BFS – Ruta entre dos celdas  (vacía si no existe camino)
@@ -276,7 +279,7 @@ bool ejecutarJuego(RenderWindow& window,
 
     // ------ Jugador y meta ------
     int fJug = -1, cJug = -1, fMeta = -1, cMeta = -1;
-    int fMetaAnt = -1, cMetaAnt = -1;  // ← NUEVA LÍNEA
+    int fMetaAnt = -1, cMetaAnt = -1;
     int movs = 0, bateria = BATERIA_MAX;
     CircleShape jugador(RADIO / 2), meta(RADIO / 2);
     jugador.setFillColor(Color::Red);
@@ -291,7 +294,7 @@ bool ejecutarJuego(RenderWindow& window,
     RectangleShape barraCarga;
     barraCarga.setPosition(WINDOW_WIDTH - 220, 20);
 
-    Text txtBateria("Bateria: 100", fuente, 16);
+    Text txtBateria("Bateria: " + to_string(BATERIA_MAX), fuente, 16);
     txtBateria.setPosition(WINDOW_WIDTH - 215, 45);
 
     Clock relojMsg;
@@ -434,36 +437,35 @@ bool ejecutarJuego(RenderWindow& window,
 
         // Movimiento automático paso a paso
         if (autoMover && bateria > 0 && ruta.size() > 1)
-{
-    // 🔄 Recalcular ruta si la meta cambió
-    if (fMeta != fMetaAnt || cMeta != cMetaAnt) {
-        actualizarRuta();
-        fMetaAnt = fMeta;
-        cMetaAnt = cMeta;
-    }
+        {
+            // 🔄 Recalcular ruta si la meta cambió
+            if (fMeta != fMetaAnt || cMeta != cMetaAnt) {
+                actualizarRuta();
+                fMetaAnt = fMeta;
+                cMetaAnt = cMeta;
+            }
 
-    bool rutaOk = true;
-    for (size_t i = idxRuta; i < ruta.size(); ++i)
-        if (!celdaOk(ruta[i].first, ruta[i].second))
-            { rutaOk = false; break; }
+            bool rutaOk = true;
+            for (size_t i = idxRuta; i < ruta.size(); ++i)
+                if (!celdaOk(ruta[i].first, ruta[i].second))
+                    { rutaOk = false; break; }
 
-    if (!rutaOk)
-    {
-        actualizarRuta();
-        if (!mostrarRuta) autoMover = false;
-    }
+            if (!rutaOk)
+            {
+                actualizarRuta();
+                if (!mostrarRuta) autoMover = false;
+            }
 
-    if (autoMover &&
-        relojPaso.getElapsedTime().asMilliseconds() > 300 &&
-        idxRuta + 1 < ruta.size())
-    {
-        int nf = ruta[idxRuta + 1].first,
-            nc = ruta[idxRuta + 1].second;
-        if (celdaOk(nf, nc)) { moverJugador(nf, nc); idxRuta++; }
-        relojPaso.restart();
-    }
-}
-
+            if (autoMover &&
+                relojPaso.getElapsedTime().asMilliseconds() > 300 &&
+                idxRuta + 1 < ruta.size())
+            {
+                int nf = ruta[idxRuta + 1].first,
+                    nc = ruta[idxRuta + 1].second;
+                if (celdaOk(nf, nc)) { moverJugador(nf, nc); idxRuta++; }
+                relojPaso.restart();
+            }
+        }
 
         if (mostrarMsg && relojMsg.getElapsedTime().asSeconds() > 2)
             mostrarMsg = false;
@@ -517,6 +519,9 @@ bool ejecutarJuego(RenderWindow& window,
     }
     return volverMenuCarga;
 }
+/* =========================================================
+   ========================  MAIN  =========================
+   =========================================================*/
 int main()
 {
     srand((unsigned)time(nullptr));
@@ -536,13 +541,11 @@ int main()
         tinyfd_messageBox("Error", "No se pudo cargar la imagen de fondo labo.png", "ok", "error", 1);
         return 1;
     }
-
     Sprite bgMenu(bgMenuTx);
-    bgMenu.setScale(
-        float(WINDOW_WIDTH) / bgMenuTx.getSize().x,
-        float(WINDOW_HEIGHT) / bgMenuTx.getSize().y
-    );
+    bgMenu.setScale(float(WINDOW_WIDTH) / bgMenuTx.getSize().x,
+                    float(WINDOW_HEIGHT) / bgMenuTx.getSize().y);
 
+    /* ---------- Elementos comunes de UI ---------- */
     RectangleShape btnRect({250, 60});
     btnRect.setFillColor(Color(20, 20, 20, 180));
     btnRect.setOrigin(btnRect.getSize().x / 2.f, btnRect.getSize().y / 2.f);
@@ -550,6 +553,28 @@ int main()
     Text btnTxt("Jugar", fuente, 28);
     btnTxt.setFillColor(Color::White);
 
+    /* ---------- Elementos de la PANTALLA CONFIG ---------- */
+    RectangleShape campoBat({300, 50});
+    campoBat.setFillColor(Color(20,20,20,180));
+    campoBat.setOrigin(campoBat.getSize().x/2.f, campoBat.getSize().y/2.f);
+    RectangleShape campoMeta(campoBat);
+
+    Text lblBat("Bateria maxima:", fuente, 24);
+    Text lblMeta("Meta cambia cada:", fuente, 24);
+    Text txtBat(to_string(BATERIA_MAX), fuente, 24);
+    Text txtMeta(to_string(META_CAMBIO_CADA), fuente, 24);
+
+    RectangleShape btnNext({200, 50});
+    btnNext.setFillColor(Color(20,20,20,180));
+    btnNext.setOrigin(btnNext.getSize().x/2.f, btnNext.getSize().y/2.f);
+    Text txtNext("Siguiente", fuente, 24);
+    txtNext.setFillColor(Color::White);
+
+    string batStr = to_string(BATERIA_MAX);
+    string metaStr = to_string(META_CAMBIO_CADA);
+    bool editBat = false, editMeta = false;
+
+    /* ---------- Estado inicial ---------- */
     Estado estado = Estado::MENU_INICIO;
     string mapaSel;
 
@@ -561,33 +586,83 @@ int main()
             if (e.type == Event::Closed)
                 window.close();
 
-            if (estado == Estado::MENU_INICIO &&
-                e.type == Event::MouseButtonPressed &&
-                e.mouseButton.button == Mouse::Left)
+            /* ---------------- MENU INICIO ---------------- */
+            if (estado == Estado::MENU_INICIO)
             {
-                Vector2i mp = Mouse::getPosition(window);
-                if (btnRect.getGlobalBounds().contains(float(mp.x), float(mp.y)))
-                    estado = Estado::MENU_CARGAR;
-            }
-            else if (estado == Estado::MENU_CARGAR &&
-                     e.type == Event::MouseButtonPressed &&
-                     e.mouseButton.button == Mouse::Left)
-            {
-                Vector2i mp = Mouse::getPosition(window);
-                if (btnRect.getGlobalBounds().contains(float(mp.x), float(mp.y)))
+                if (e.type == Event::MouseButtonPressed &&
+                    e.mouseButton.button == Mouse::Left)
                 {
-                    const char* filtros[1] = { "*.txt" };
-                    const char* ruta = tinyfd_openFileDialog("Selecciona nivel", "", 1,
-                                                             filtros, "Nivel", 0);
-                    if (ruta)
+                    Vector2i mp = Mouse::getPosition(window);
+                    if (btnRect.getGlobalBounds().contains(float(mp.x), float(mp.y)))
+                        estado = Estado::MENU_CONFIG;
+                }
+            }
+            /* ---------------- MENU CONFIG ---------------- */
+            else if (estado == Estado::MENU_CONFIG)
+            {
+                if (e.type == Event::MouseButtonPressed &&
+                    e.mouseButton.button == Mouse::Left)
+                {
+                    Vector2i mp = Mouse::getPosition(window);
+                    if (campoBat.getGlobalBounds().contains(float(mp.x), float(mp.y)))
+                        { editBat = true; editMeta = false; }
+                    else if (campoMeta.getGlobalBounds().contains(float(mp.x), float(mp.y)))
+                        { editMeta = true; editBat = false; }
+                    else if (btnNext.getGlobalBounds().contains(float(mp.x), float(mp.y)))
                     {
-                        mapaSel = ruta;
-                        estado = Estado::JUEGO;
+                        /* Validar números */
+                        try {
+                            int nb = stoi(batStr);
+                            int nm = stoi(metaStr);
+                            if (nb > 0 && nm > 0)
+                            { BATERIA_MAX = nb; META_CAMBIO_CADA = nm; }
+                        } catch (...) { /* si error, se quedan valores anteriores */ }
 
-                        bool volver = ejecutarJuego(window, mapaSel, fuente);
-                        if (!window.isOpen()) break;
+                        editBat = editMeta = false;
+                        estado = Estado::MENU_CARGAR;
+                    }
+                    else { editBat = editMeta = false; }
+                }
+                /* Capturar texto */
+                if (e.type == Event::TextEntered)
+                {
+                    if (editBat)
+                    {
+                        if (e.text.unicode == 8) { if (!batStr.empty()) batStr.pop_back(); }
+                        else if (isdigit(e.text.unicode) && batStr.size()<4)
+                            batStr.push_back(char(e.text.unicode));
+                        txtBat.setString(batStr.empty()?"0":batStr);
+                    }
+                    else if (editMeta)
+                    {
+                        if (e.text.unicode == 8) { if (!metaStr.empty()) metaStr.pop_back(); }
+                        else if (isdigit(e.text.unicode) && metaStr.size()<4)
+                            metaStr.push_back(char(e.text.unicode));
+                        txtMeta.setString(metaStr.empty()?"0":metaStr);
+                    }
+                }
+            }
+            /* ---------------- MENU CARGAR ---------------- */
+            else if (estado == Estado::MENU_CARGAR)
+            {
+                if (e.type == Event::MouseButtonPressed &&
+                    e.mouseButton.button == Mouse::Left)
+                {
+                    Vector2i mp = Mouse::getPosition(window);
+                    if (btnRect.getGlobalBounds().contains(float(mp.x), float(mp.y)))
+                    {
+                        const char* filtros[1] = { "*.txt" };
+                        const char* ruta = tinyfd_openFileDialog("Selecciona nivel", "", 1,
+                                                                 filtros, "Nivel", 0);
+                        if (ruta)
+                        {
+                            mapaSel = ruta;
+                            estado = Estado::JUEGO;
 
-                        estado = volver ? Estado::MENU_CARGAR : Estado::MENU_INICIO;
+                            bool volver = ejecutarJuego(window, mapaSel, fuente);
+                            if (!window.isOpen()) break;
+                            estado = volver ? Estado::MENU_CONFIG : Estado::MENU_INICIO;
+                        }
                     }
                 }
             }
@@ -595,10 +670,10 @@ int main()
 
         if (!window.isOpen()) break;
 
+        /* --------------- RENDER de los diferentes menús --------------- */
         if (estado == Estado::MENU_INICIO || estado == Estado::MENU_CARGAR)
         {
-            window.clear();
-            window.draw(bgMenu);
+            window.clear(); window.draw(bgMenu);
 
             string textoBoton = (estado == Estado::MENU_INICIO) ? "Jugar" : "Cargar mapa";
             btnTxt.setString(textoBoton);
@@ -614,9 +689,43 @@ int main()
             titulo.setOrigin(tb.left + tb.width / 2.f, tb.top + tb.height / 2.f);
             titulo.setPosition(WINDOW_WIDTH / 2.f, WINDOW_HEIGHT * 0.25f);
 
-            window.draw(btnRect);
-            window.draw(btnTxt);
-            window.draw(titulo);
+            window.draw(btnRect); window.draw(btnTxt); window.draw(titulo);
+            window.display();
+        }
+        else if (estado == Estado::MENU_CONFIG)
+        {
+            window.clear(); window.draw(bgMenu);
+
+            /* Posicionar elementos */
+            campoBat.setPosition(WINDOW_WIDTH/2.f, WINDOW_HEIGHT*0.45f);
+            campoMeta.setPosition(WINDOW_WIDTH/2.f, WINDOW_HEIGHT*0.60f);
+
+            lblBat.setPosition(campoBat.getPosition().x - campoBat.getSize().x/2.f,
+                               campoBat.getPosition().y - 40);
+            lblMeta.setPosition(campoMeta.getPosition().x - campoMeta.getSize().x/2.f,
+                                campoMeta.getPosition().y - 40);
+
+            txtBat.setPosition(campoBat.getPosition().x - txtBat.getLocalBounds().width/2.f,
+                               campoBat.getPosition().y - txtBat.getLocalBounds().height/2.f);
+            txtMeta.setPosition(campoMeta.getPosition().x - txtMeta.getLocalBounds().width/2.f,
+                                campoMeta.getPosition().y - txtMeta.getLocalBounds().height/2.f);
+
+            /* Resaltar campo activo */
+            campoBat.setOutlineThickness(editBat?3.f:0.f);
+            campoBat.setOutlineColor(Color::Yellow);
+            campoMeta.setOutlineThickness(editMeta?3.f:0.f);
+            campoMeta.setOutlineColor(Color::Yellow);
+
+            /* Botón siguiente */
+            btnNext.setPosition(WINDOW_WIDTH/2.f, WINDOW_HEIGHT*0.8f);
+            txtNext.setPosition(btnNext.getPosition().x - txtNext.getLocalBounds().width/2.f,
+                                btnNext.getPosition().y - txtNext.getLocalBounds().height/2.f);
+
+            /* Dibujar */
+            window.draw(campoBat);  window.draw(campoMeta);
+            window.draw(lblBat);    window.draw(lblMeta);
+            window.draw(txtBat);    window.draw(txtMeta);
+            window.draw(btnNext);   window.draw(txtNext);
             window.display();
         }
     }
