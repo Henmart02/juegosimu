@@ -276,6 +276,7 @@ bool ejecutarJuego(RenderWindow& window,
 
     // ------ Jugador y meta ------
     int fJug = -1, cJug = -1, fMeta = -1, cMeta = -1;
+    int fMetaAnt = -1, cMetaAnt = -1;  // ← NUEVA LÍNEA
     int movs = 0, bateria = BATERIA_MAX;
     CircleShape jugador(RADIO / 2), meta(RADIO / 2);
     jugador.setFillColor(Color::Red);
@@ -432,29 +433,37 @@ bool ejecutarJuego(RenderWindow& window,
         }
 
         // Movimiento automático paso a paso
-        if (autoMover && bateria > 0 && mostrarRuta && ruta.size() > 1)
-        {
-            bool rutaOk = true;
-            for (size_t i = idxRuta; i < ruta.size(); ++i)
-                if (!celdaOk(ruta[i].first, ruta[i].second))
-                    { rutaOk = false; break; }
+        if (autoMover && bateria > 0 && ruta.size() > 1)
+{
+    // 🔄 Recalcular ruta si la meta cambió
+    if (fMeta != fMetaAnt || cMeta != cMetaAnt) {
+        actualizarRuta();
+        fMetaAnt = fMeta;
+        cMetaAnt = cMeta;
+    }
 
-            if (!rutaOk)
-            {
-                actualizarRuta();
-                if (!mostrarRuta) autoMover = false;
-            }
+    bool rutaOk = true;
+    for (size_t i = idxRuta; i < ruta.size(); ++i)
+        if (!celdaOk(ruta[i].first, ruta[i].second))
+            { rutaOk = false; break; }
 
-            if (autoMover &&
-                relojPaso.getElapsedTime().asMilliseconds() > 300 &&
-                idxRuta + 1 < ruta.size())
-            {
-                int nf = ruta[idxRuta + 1].first,
-                    nc = ruta[idxRuta + 1].second;
-                if (celdaOk(nf, nc)) { moverJugador(nf, nc); idxRuta++; }
-                relojPaso.restart();
-            }
-        }
+    if (!rutaOk)
+    {
+        actualizarRuta();
+        if (!mostrarRuta) autoMover = false;
+    }
+
+    if (autoMover &&
+        relojPaso.getElapsedTime().asMilliseconds() > 300 &&
+        idxRuta + 1 < ruta.size())
+    {
+        int nf = ruta[idxRuta + 1].first,
+            nc = ruta[idxRuta + 1].second;
+        if (celdaOk(nf, nc)) { moverJugador(nf, nc); idxRuta++; }
+        relojPaso.restart();
+    }
+}
+
 
         if (mostrarMsg && relojMsg.getElapsedTime().asSeconds() > 2)
             mostrarMsg = false;
