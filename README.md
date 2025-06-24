@@ -84,8 +84,8 @@ segundo: ./game
 
 | ![Pantalla de Menu de juego](docs/media/menuprincipal.png) | ![Pantalla de Opciones](docs/media/opciones.png) |
 |---------------------------------------------|--------------------------------------------|
-| ![Pantalla de carga de mapa de juego](docs/media/cargarmapa.png) | ![Pantalla de Opciones](docs/media/opciones.png) |
-|---------------------------------------------|--------------------------------------------|
+| ![Pantalla de carga de mapa de juego](docs/media/cargarmapa.png) | ![Pantalla de Opciones](docs/media/img.png) |
+
 
 
 
