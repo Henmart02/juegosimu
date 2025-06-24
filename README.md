@@ -93,3 +93,4 @@ segundo: ./game
 - **SFML 2.6.2:** © 2007-2024 Laurent Gomila y colaboradores.  
 - **tinyfiledialogs:** © Nicolas Guillemot – licencia zlib.  
 - **Arte & sonidos:** creados por el equipo o con licencias CC-BY (ver `assets/attribution.txt`).
+- **Programadores del Juego:** Henry Martinez, Carlos Ordoñez Jose Rodriguez.
