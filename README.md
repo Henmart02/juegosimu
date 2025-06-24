@@ -43,7 +43,7 @@ tu **batería** se drena con cada paso y la **salida** cambia de ubicación cada
 
 ### Windows (MSYS2 / MinGW-w64)
 
-```bash
+ ```bash 
 git clone https://github.com/tu-usuario/EscapeTheGrid.git
 cd EscapeTheGrid
 g++ main.cpp tinyfiledialogs.c -o EscapeTheGrid.exe ^
@@ -56,7 +56,7 @@ primero cargar : g++ main.cpp tinyfiledialogs.c -o game -I"C:\Users\HENMA\OneDri
 
 segundo: ./game
 
-```bash
+```
 
 
 ## Cómo jugar
