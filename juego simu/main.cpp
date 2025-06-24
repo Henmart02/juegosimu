@@ -5,6 +5,8 @@
  *  ▸ Cambios aleatorios reversibles
  *  ▸ Meta periódica siempre alcanzable
  *  ▸ Fin de juego con opciones
+ *  ▸ **NUEVO:** Jugador y meta son pentágonos (rojo y verde) con el
+ *               mismo tamaño que las celdas del tablero
  *****************************************************/
 #include <SFML/Graphics.hpp>
 #include "tinyfiledialogs.h"
@@ -209,6 +211,7 @@ bool elegirNuevaMeta(vector<string>& mapa, int fJug, int cJug,
         {
             fMeta = fi; cMeta = ci;
             meta.setPosition(posCelda.at({fMeta, cMeta}));
+            meta.setRotation((fMeta % 2) ? 36.f : 0.f); // ← orientación correcta
             return true;
         }
     }
@@ -281,11 +284,20 @@ bool ejecutarJuego(RenderWindow& window,
     int fJug = -1, cJug = -1, fMeta = -1, cMeta = -1;
     int fMetaAnt = -1, cMetaAnt = -1;
     int movs = 0, bateria = BATERIA_MAX;
-    CircleShape jugador(RADIO / 2), meta(RADIO / 2);
-    jugador.setFillColor(Color::Red);
-    meta.setFillColor(Color::Green);
-    jugador.setOrigin(RADIO / 2, RADIO / 2);
-    meta.setOrigin(RADIO / 2, RADIO / 2);
+
+    // ▸ Cargar texturas para jugador y meta
+    Texture npcTexture, metaTexture;
+    npcTexture.loadFromFile("npc.png");
+    metaTexture.loadFromFile("meta.png");
+
+    // ▸▸ PENTÁGONOS (5 lados) en vez de círculos
+    CircleShape jugador(RADIO, 5), meta(RADIO, 5);
+    jugador.setTexture(&npcTexture);
+    meta.setTexture(&metaTexture);
+    jugador.setScale(0.9f, 0.9f);
+    meta.setScale(0.9f, 0.9f);
+    jugador.setOrigin(RADIO, RADIO);
+    meta.setOrigin(RADIO, RADIO);
 
     RectangleShape barraFondo({200, 20});
     barraFondo.setFillColor({50, 50, 50});
@@ -335,6 +347,7 @@ bool ejecutarJuego(RenderWindow& window,
     auto moverJugador = [&](int nf, int nc) {
         fJug = nf; cJug = nc;
         jugador.setPosition(posCelda[{fJug, cJug}]);
+        jugador.setRotation((fJug % 2) ? 36.f : 0.f);
         bateria--; movs++;
         txtBateria.setString("Bateria: " + to_string(bateria));
 
@@ -393,11 +406,13 @@ bool ejecutarJuego(RenderWindow& window,
                         {
                             fJug = coord.first; cJug = coord.second;
                             jugador.setPosition(pos);
+                            jugador.setRotation((fJug % 2) ? 36.f : 0.f);
                         }
                         else if (fMeta == -1 && !(coord.first == fJug && coord.second == cJug))
                         {
                             fMeta = coord.first; cMeta = coord.second;
                             meta.setPosition(pos);
+                            meta.setRotation((fMeta % 2) ? 36.f : 0.f);
                         }
                         break;
                     }
