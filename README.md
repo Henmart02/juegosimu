@@ -82,7 +82,7 @@ segundo: ./game
 
 ### Capturas de pantalla / GIFs
 
-| ![Pantalla de juego](docs/media/screen1.png) | ![Ruta automática](docs/media/screen2.gif) |
+| ![Pantalla de juego](docs/media/menuprincipal.png) | ![Ruta automática](docs/media/opciones.png) |
 |---------------------------------------------|--------------------------------------------|
 
 > Coloca tus imágenes en `docs/media` y actualiza los nombres si es necesario.
