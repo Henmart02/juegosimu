@@ -52,12 +52,44 @@ g++ main.cpp tinyfiledialogs.c -o EscapeTheGrid.exe ^
    -lcomdlg32 -lole32
 
 
-
-
-
-
-
-
 primero cargar : g++ main.cpp tinyfiledialogs.c -o game -I"C:\Users\HENMA\OneDrive\Escritorio\juego simu\SFML-2.6.2\include" -L"C:\Users\HENMA\OneDrive\Escritorio\juego simu\SFML-2.6.2\lib" -lsfml-graphics -lsfml-window -lsfml-system -lcomdlg32 -lole32
 
 segundo: ./game
+
+```bash
+
+
+## Cómo jugar
+
+1. **Ejecuta** el programa (`EscapeTheGrid.exe` / `./EscapeTheGrid`).
+2. En el menú principal haz clic en **Jugar**.
+3. Ajusta **Batería máxima** y **Meta cambia cada** en la pantalla de configuración.
+4. Selecciona un mapa `.txt` (usa los ejemplos en `/levels` o crea los tuyos).
+5. Si el mapa no lo incluye, da clic en dos celdas para colocar **jugador** y **meta**.
+6. Muévete con `W A S D` o pulsa **R** para que el algoritmo BFS recorra el camino óptimo.
+7. Llega a la meta antes de que la batería se agote… ¡o quedarás atrapado para siempre!
+
+### Controles
+
+| Tecla | Acción |
+|-------|--------|
+| **W** | Mover arriba |
+| **S** | Mover abajo |
+| **A** | Mover arriba-izq / abajo-izq (según la fila) |
+| **D** | Mover arriba-der / abajo-der (según la fila) |
+| **R** | Calcular ruta y activar movimiento automático |
+| **Esc** | Cerrar ventana |
+
+### Capturas de pantalla / GIFs
+
+| ![Pantalla de juego](docs/media/screen1.png) | ![Ruta automática](docs/media/screen2.gif) |
+|---------------------------------------------|--------------------------------------------|
+
+> Coloca tus imágenes en `docs/media` y actualiza los nombres si es necesario.
+
+### Créditos y licencias
+
+- **Código:** *Equipo Escape Q (2025)* – licencia MIT.  
+- **SFML 2.6.2:** © 2007-2024 Laurent Gomila y colaboradores.  
+- **tinyfiledialogs:** © Nicolas Guillemot – licencia zlib.  
+- **Arte & sonidos:** creados por el equipo o con licencias CC-BY (ver `assets/attribution.txt`).
