@@ -82,10 +82,11 @@ segundo: ./game
 
 ### Capturas de pantalla / GIFs
 
-| ![Pantalla de juego](docs/media/menuprincipal.png) | ![Ruta automática](docs/media/opciones.png) |
+| ![Pantalla de Menu de juego](docs/media/menuprincipal.png) | ![Pantalla de Opciones](docs/media/opciones.png) |
+| ![Pantalla de carga de mapa de juego](docs/media/cargarmapa.png) | |
 |---------------------------------------------|--------------------------------------------|
 
-> Coloca tus imágenes en `docs/media` y actualiza los nombres si es necesario.
+
 
 ### Créditos y licencias
 
