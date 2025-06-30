@@ -305,6 +305,8 @@ float escala = min(escalaX, escalaY);
     int fJug = -1, cJug = -1, fMeta = -1, cMeta = -1;
     int fMetaAnt = -1, cMetaAnt = -1;
     int movs = 0, bateria = BATERIA_MAX;
+    Clock relojJuego;  // ← mide el tiempo total del nivel
+
 
     // ▸ Cargar texturas para jugador y meta
     Texture npcTexture, metaTexture;
@@ -341,7 +343,7 @@ txtBateria.setPosition(xPanel + 5, 55);
     msgMeta.setPosition(20, 20);
     bool mostrarMsg = false;
 
-    Text txtControles("Controles:\nW/S: Arriba/Abajo\nA/D: Diagonal\nClick: Elegir\nR: Ruta\n", fuente, 16);
+    Text txtControles("Controles:\nW/S: Arriba/Abajo\nA/D: izquierda/derecha\nClick: colocar jugadorYmeta\nR: RutaAutomatica\n", fuente, 16);
 txtControles.setFillColor(Color::White);
 txtControles.setPosition(xPanel, 100);
 
@@ -384,12 +386,27 @@ txtControles.setPosition(xPanel, 100);
         txtBateria.setString("Bateria: " + to_string(bateria));
 
         // 🏁 Victoria
-        if (fJug == fMeta && cJug == cMeta)
+        /*if (fJug == fMeta && cJug == cMeta)
         {
             autoMover = false;
             int resp = tinyfd_messageBox("¡Meta alcanzada!",
                 "¡Felicitaciones!\n\n¿Deseas cargar otro mapa?\n(Sí = cargar, No = salir)",
-                "yesno", "info", 1);
+                "yesno", "info", 1);*/
+
+                if (fJug == fMeta && cJug == cMeta)
+{
+    autoMover = false;
+
+    float segundos = relojJuego.getElapsedTime().asSeconds();
+    string msg = "¡Felicitaciones!\n\n"
+                 "Movimientos: " + to_string(movs) +
+                 "\nTiempo: " + to_string((int)segundos) + " segundos\n\n"
+                 "¿Deseas cargar otro mapa?\n(Sí = cargar, No = salir)";
+
+    int resp = tinyfd_messageBox("¡Meta alcanzada!",
+                                 msg.c_str(),
+                                 "yesno", "info", 1);
+
             if (resp == 1)   volverMenuCarga = true;
             else             window.close();
             return;
