@@ -244,7 +244,7 @@ bool ejecutarJuego(RenderWindow& window,
 
     // ------ Texturas y fondo ------
     Texture bgTx;
-    bgTx.loadFromFile("espacio.png");
+    bgTx.loadFromFile("imgytext/espacio.png");
     Sprite fondo(bgTx);
     fondo.setScale(float(WINDOW_WIDTH) / bgTx.getSize().x,
                    float(WINDOW_HEIGHT) / bgTx.getSize().y);
@@ -253,8 +253,8 @@ bool ejecutarJuego(RenderWindow& window,
     static bool cargadas = false;
     if (!cargadas)
     {
-        txOn.loadFromFile("PentagonosON.png");
-        txOff.loadFromFile("PentagonosOFF.png");
+        txOn.loadFromFile("imgytext/PentagonosON.png");
+        txOff.loadFromFile("imgytext/PentagonosOFF.png");
         cargadas = true;
     }
 
@@ -310,8 +310,8 @@ float escala = min(escalaX, escalaY);
 
     // ▸ Cargar texturas para jugador y meta
     Texture npcTexture, metaTexture;
-    npcTexture.loadFromFile("npc.png");
-    metaTexture.loadFromFile("meta.png");
+    npcTexture.loadFromFile("imgytext/npc.png");
+    metaTexture.loadFromFile("imgytext/meta.png");
 
     // ▸▸ PENTÁGONOS (5 lados) en vez de círculos
     CircleShape jugador(RADIO, 5), meta(RADIO, 5);
@@ -602,14 +602,14 @@ int main()
     window.setFramerateLimit(60);
 
     Font fuente;
-    if (!fuente.loadFromFile("arial.ttf"))
+    if (!fuente.loadFromFile("imgytext/arial.ttf"))
     {
         tinyfd_messageBox("Error", "No se pudo cargar la fuente arial.ttf", "ok", "error", 1);
         return 1;
     }
 
     Texture bgMenuTx;
-    if (!bgMenuTx.loadFromFile("labo.png"))
+    if (!bgMenuTx.loadFromFile("imgytext/labo.png"))
     {
         tinyfd_messageBox("Error", "No se pudo cargar la imagen de fondo labo.png", "ok", "error", 1);
         return 1;
