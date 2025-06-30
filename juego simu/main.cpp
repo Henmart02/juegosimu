@@ -221,6 +221,9 @@ bool elegirNuevaMeta(vector<string>& mapa, int fJug, int cJug,
 /* =========================================================
    FUNCIÓN DE JUEGO: ciclo de ejecución principal del nivel
    =========================================================*/
+   float margenLateralIzq = 50.f;
+float anchoPanelDerecho = 250.f;  // ← espacio reservado para batería y controles
+
 bool ejecutarJuego(RenderWindow& window,
                    const string& archivoMapa,
                    Font& fuente)
@@ -258,13 +261,30 @@ bool ejecutarJuego(RenderWindow& window,
     // ------ Geometría ------
     size_t filas = mapa.size(), cols = 0;
     for (auto& l : mapa) cols = max(cols, l.size());
-
+/*
     float escalaX = (WINDOW_WIDTH - 100.f) / (cols * PASO_X_BASE);
     float altura = 0.f;
     for (size_t i = 0; i < filas; ++i)
         altura += (i % 2 ? PASO_Y_IMPAR_BASE : PASO_Y_PAR_BASE);
     float escalaY = (WINDOW_HEIGHT - 150.f) / altura;
-    float escala = min(escalaX, escalaY);
+    float escala = min(escalaX, escalaY);*/
+
+    // Márgenes para que la barra y el texto no se tapen
+float margenSuperior = 80.f;
+float margenInferior = 30.f;
+float margenLateral = 80.f;
+
+//float escalaX = (WINDOW_WIDTH - margenLateral * 2.f) / (cols * PASO_X_BASE);
+float escalaX = (WINDOW_WIDTH - anchoPanelDerecho - margenLateralIzq) / (cols * PASO_X_BASE);
+
+
+float altura = 0.f;
+for (size_t i = 0; i < filas; ++i)
+    altura += (i % 2 ? PASO_Y_IMPAR_BASE : PASO_Y_PAR_BASE);
+
+float escalaY = (WINDOW_HEIGHT - margenSuperior - margenInferior) / altura;
+float escala = min(escalaX, escalaY);
+
 
     float RADIO = RADIO_BASE * escala,
           PASO_X = PASO_X_BASE * escala,
@@ -272,7 +292,8 @@ bool ejecutarJuego(RenderWindow& window,
           PASO_Y_IMP = PASO_Y_IMPAR_BASE * escala;
 
     map<pair<int,int>, Vector2f> posCelda;
-    float yAcc = 70.f;
+    //float yAcc = 70.f;
+    float yAcc = margenSuperior;
     for (size_t f = 0; f < filas; ++f)
     {
         for (size_t c = 0; c < mapa[f].size(); ++c)
@@ -301,18 +322,29 @@ bool ejecutarJuego(RenderWindow& window,
 
     RectangleShape barraFondo({200, 20});
     barraFondo.setFillColor({50, 50, 50});
-    barraFondo.setPosition(WINDOW_WIDTH - 220, 20);
+    //barraFondo.setPosition(WINDOW_WIDTH - 220, 20);
 
     RectangleShape barraCarga;
-    barraCarga.setPosition(WINDOW_WIDTH - 220, 20);
+    //barraCarga.setPosition(WINDOW_WIDTH - 220, 20);
 
     Text txtBateria("Bateria: " + to_string(BATERIA_MAX), fuente, 16);
-    txtBateria.setPosition(WINDOW_WIDTH - 215, 45);
+    //txtBateria.setPosition(WINDOW_WIDTH - 215, 45);
+
+    float xPanel = WINDOW_WIDTH - anchoPanelDerecho + 20.f;
+barraFondo.setPosition(xPanel, 30);
+barraCarga.setPosition(xPanel, 30);
+txtBateria.setPosition(xPanel + 5, 55);
+
 
     Clock relojMsg;
     Text msgMeta("", fuente, 24);
     msgMeta.setPosition(20, 20);
     bool mostrarMsg = false;
+
+    Text txtControles("Controles:\nW/S: Arriba/Abajo\nA/D: Diagonal\nClick: Elegir\nR: Ruta\n", fuente, 16);
+txtControles.setFillColor(Color::White);
+txtControles.setPosition(xPanel, 100);
+
 
     vector<pair<int,int>> ruta;
     bool mostrarRuta = false, autoMover = false;
@@ -487,6 +519,13 @@ bool ejecutarJuego(RenderWindow& window,
 
         // ================== RENDER ==================
         window.clear(); window.draw(fondo);
+        // PANEL DERECHO DE INFORMACIÓN
+RectangleShape panelInfo;
+panelInfo.setSize(Vector2f(anchoPanelDerecho, WINDOW_HEIGHT));
+panelInfo.setFillColor(Color(0, 0, 0, 160));
+panelInfo.setPosition(WINDOW_WIDTH - anchoPanelDerecho, 0);
+window.draw(panelInfo);
+
 
         for (size_t f = 0; f < filas; ++f)
         {
@@ -528,6 +567,8 @@ bool ejecutarJuego(RenderWindow& window,
                                  perc > 0.33 ? Color::Yellow : Color::Red );
         window.draw(barraFondo); window.draw(barraCarga);
         window.draw(txtBateria);
+        window.draw(txtControles);
+
         if (mostrarMsg) window.draw(msgMeta);
 
         window.display();
